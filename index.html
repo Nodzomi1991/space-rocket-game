@@ -116,7 +116,6 @@
             color: white;
             font-size: 24px;
         }
-        /* Touch controls for mobile */
         #touchControls {
             position: absolute;
             bottom: 20px;
@@ -163,21 +162,49 @@
     <div id="loading" class="loading">Загрузка изображений...</div>
 
     <script>
+        // ========== ТУРНИРНАЯ ТАБЛИЦА ==========
+        async function submitScore() {
+            // Предотвращаем повторную отправку
+            if (score <= 0) return;
+
+            const name = prompt("Введите ваше имя для таблицы лидеров:", "Космонавт");
+            if (!name || name.trim() === "") return;
+
+            // ⚠️ ЗАМЕНИТЕ ЭТОТ URL НА СВОЙ ИЗ GOOGLE APPS SCRIPT
+            const url = 'https://script.google.com/macros/s/ВАШ-URL/exec';
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    mode: 'cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: name.trim(),
+                        score: score
+                    })
+                });
+
+                if (response.ok) {
+                    console.log("Результат успешно отправлен в таблицу лидеров!");
+                } else {
+                    console.warn("Ошибка сервера:", response.status);
+                }
+            } catch (e) {
+                console.error("Не удалось отправить результат:", e);
+            }
+        }
+
         // Canvas setup
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
-        // Check if device is mobile
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        
-        // Show touch controls on mobile
         if (isMobile) {
             document.getElementById('touchControls').style.display = 'flex';
         }
 
-        // Image loading
         const images = {};
         const imageSources = {
             background: 'background.png',
@@ -254,7 +281,6 @@
             loadImage(name, imageSources[name]);
         });
 
-        // Game state
         let gameRunning = false;
         let score = 0;
         let flameParticles = [];
@@ -263,7 +289,6 @@
         let targetRocketAngle = 0;
         let rocketVelocityX = 0;
 
-        // Flame particle class
         class FlameParticle {
             constructor(x, y) {
                 this.x = x;
@@ -275,14 +300,12 @@
                 this.maxLife = this.life;
                 this.color = Math.random() > 0.7 ? '#ff6b35' : '#ff9e00';
             }
-            
             update() {
                 this.x += this.speedX;
                 this.y += this.speedY;
                 this.life--;
                 this.size *= 0.95;
             }
-            
             draw() {
                 const alpha = this.life / this.maxLife;
                 ctx.globalAlpha = alpha;
@@ -306,24 +329,21 @@
         const stars = [];
         const meteors = [];
 
-        // Star class — СКОРОСТЬ ПАДЕНИЯ УМЕНЬШЕНА
         class Star {
             constructor() {
                 this.x = Math.random() * (canvas.width - 30);
                 this.y = -30;
                 this.width = 30;
                 this.height = 30;
-                this.speed = Math.random() * 1.5 + 1; // ← ЗАМЕДЛЕНО
+                this.speed = Math.random() * 1.5 + 1;
                 this.collected = false;
                 this.twinklePhase = Math.random() * Math.PI * 2;
                 this.twinkleSpeed = Math.random() * 0.1 + 0.05;
             }
-            
             update() {
                 this.y += this.speed;
                 this.twinklePhase += this.twinkleSpeed;
             }
-            
             draw() {
                 if (!this.collected) {
                     if (images.stars) {
@@ -340,7 +360,6 @@
                     }
                 }
             }
-            
             collidesWith(obj) {
                 return !this.collected && 
                        this.x < obj.x + obj.width &&
@@ -358,17 +377,14 @@
                 this.height = 40;
                 this.speed = Math.random() * 3 + 2;
             }
-            
             update() {
                 this.y += this.speed;
             }
-            
             draw() {
                 if (images.meteor) {
                     ctx.drawImage(images.meteor, this.x, this.y, this.width, this.height);
                 }
             }
-            
             collidesWith(obj) {
                 return this.x < obj.x + obj.width &&
                        this.x + this.width > obj.x &&
@@ -379,15 +395,11 @@
 
         function updateGame() {
             frameCount++;
-            
             rocketAngle += (targetRocketAngle - rocketAngle) * 0.2;
             
-            // УПРАВЛЕНИЕ: касание canvas ИЛИ кнопки (НО НЕ ОДНОВРЕМЕННО)
             if (isMobile && !isUsingTouchScreen) {
-                // Только если НЕ касаемся canvas — работают кнопки
                 rocket.x += rocketVelocityX;
                 rocketVelocityX *= 0.8;
-
                 if (rocket.x < 0) {
                     rocket.x = 0;
                     rocketVelocityX = 0;
@@ -396,11 +408,9 @@
                     rocket.x = canvas.width - rocket.width;
                     rocketVelocityX = 0;
                 }
-
                 targetRocketAngle = Math.max(-0.3, Math.min(0.3, rocketVelocityX * 0.03));
             }
             
-            // Flame particles
             for (let i = flameParticles.length - 1; i >= 0; i--) {
                 flameParticles[i].update();
                 if (flameParticles[i].life <= 0 || flameParticles[i].size <= 0.5) {
@@ -414,7 +424,6 @@
                 flameParticles.push(new FlameParticle(flameX, flameY));
             }
             
-            // Stars
             for (let i = stars.length - 1; i >= 0; i--) {
                 stars[i].update();
                 if (stars[i].collidesWith(rocket)) {
@@ -427,7 +436,6 @@
                 }
             }
             
-            // Meteors
             for (let i = meteors.length - 1; i >= 0; i--) {
                 meteors[i].update();
                 if (meteors[i].collidesWith(rocket)) {
@@ -492,10 +500,17 @@
             requestAnimationFrame(gameLoop);
         }
 
+        // === GAME OVER + ОТПРАВКА РЕЗУЛЬТАТА ===
         function gameOver() {
+            if (!gameRunning) return; // защита от повторного вызова
             gameRunning = false;
             document.getElementById('finalScore').textContent = `Звёзды: ${score}`;
             document.getElementById('gameOver').style.display = 'flex';
+            
+            // Отправляем результат в таблицу лидеров
+            if (score > 0) {
+                submitScore();
+            }
         }
 
         function startGame() {
@@ -515,10 +530,8 @@
             gameLoop();
         }
 
-        // === УПРАВЛЕНИЕ ===
         let isUsingTouchScreen = false;
 
-        // Desktop mouse
         canvas.addEventListener('mousemove', (e) => {
             if (gameRunning && !isMobile) {
                 isUsingTouchScreen = false;
@@ -530,7 +543,6 @@
             }
         });
 
-        // Touch start — canvas
         canvas.addEventListener('touchstart', (e) => {
             if (gameRunning && isMobile) {
                 e.preventDefault();
@@ -544,7 +556,6 @@
             }
         }, { passive: false });
 
-        // Touch move — canvas
         canvas.addEventListener('touchmove', (e) => {
             if (gameRunning && isMobile && isUsingTouchScreen) {
                 e.preventDefault();
@@ -557,15 +568,13 @@
             }
         }, { passive: false });
 
-        // Touch end — canvas (ВАЖНО: сброс флага!)
         canvas.addEventListener('touchend', () => {
             if (isMobile) {
-                isUsingTouchScreen = false; // ← КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ
+                isUsingTouchScreen = false;
                 targetRocketAngle = 0;
             }
         });
 
-        // Кнопки — работают ТОЛЬКО когда isUsingTouchScreen === false
         function setButtonVelocity(dir) {
             if (!isUsingTouchScreen) {
                 rocketVelocityX = dir * rocket.maxSpeed;
@@ -595,7 +604,6 @@
             if (isMobile && !isUsingTouchScreen) targetRocketAngle = 0;
         });
 
-        // Mouse для кнопок (тестирование на ПК)
         document.getElementById('leftBtn').addEventListener('mousedown', () => {
             if (gameRunning && !isUsingTouchScreen) setButtonVelocity(-1);
         });
