@@ -201,7 +201,6 @@
             };
             img.onerror = () => {
                 console.error(`Failed to load image: ${src}`);
-                // Create fallback images if loading fails
                 createFallbackImage(name);
                 imagesLoaded++;
                 if (imagesLoaded === totalImages) {
@@ -251,7 +250,6 @@
             images[name] = img;
         }
 
-        // Load all images
         Object.keys(imageSources).forEach(name => {
             loadImage(name, imageSources[name]);
         });
@@ -261,9 +259,9 @@
         let score = 0;
         let flameParticles = [];
         let frameCount = 0;
-        let rocketAngle = 0; // Angle for rocket tilt
-        let targetRocketAngle = 0; // Target angle for smooth rotation
-        let rocketVelocityX = 0; // For mobile button controls
+        let rocketAngle = 0;
+        let targetRocketAngle = 0;
+        let rocketVelocityX = 0;
 
         // Flame particle class
         class FlameParticle {
@@ -296,7 +294,6 @@
             }
         }
 
-        // Game objects
         const rocket = {
             x: canvas.width / 2 - 25,
             y: canvas.height - 100,
@@ -309,15 +306,14 @@
         const stars = [];
         const meteors = [];
 
-        // Star class with twinkling effect
+        // Star class — СКОРОСТЬ ПАДЕНИЯ УМЕНЬШЕНА
         class Star {
             constructor() {
                 this.x = Math.random() * (canvas.width - 30);
                 this.y = -30;
                 this.width = 30;
                 this.height = 30;
-                // Increased speed: from (Math.random() * 2 + 1) to (Math.random() * 3 + 2)
-                this.speed = Math.random() * 3 + 2;
+                this.speed = Math.random() * 1.5 + 1; // ← ЗАМЕДЛЕНО
                 this.collected = false;
                 this.twinklePhase = Math.random() * Math.PI * 2;
                 this.twinkleSpeed = Math.random() * 0.1 + 0.05;
@@ -331,10 +327,7 @@
             draw() {
                 if (!this.collected) {
                     if (images.stars) {
-                        // Draw base star
                         ctx.drawImage(images.stars, this.x, this.y, this.width, this.height);
-                        
-                        // Draw twinkling effect
                         const twinkleIntensity = Math.sin(this.twinklePhase) * 0.3 + 0.7;
                         if (twinkleIntensity > 0.8) {
                             ctx.globalAlpha = (twinkleIntensity - 0.8) * 3;
@@ -357,7 +350,6 @@
             }
         }
 
-        // Meteor class
         class Meteor {
             constructor() {
                 this.x = Math.random() * (canvas.width - 40);
@@ -385,20 +377,17 @@
             }
         }
 
-        // Update game objects
         function updateGame() {
             frameCount++;
             
-            // Update rocket angle smoothly
             rocketAngle += (targetRocketAngle - rocketAngle) * 0.2;
             
-            // Update rocket position based on control method
+            // УПРАВЛЕНИЕ: касание canvas ИЛИ кнопки (НО НЕ ОДНОВРЕМЕННО)
             if (isMobile && !isUsingTouchScreen) {
-                // Mobile button controls
+                // Только если НЕ касаемся canvas — работают кнопки
                 rocket.x += rocketVelocityX;
-                rocketVelocityX *= 0.8; // Friction
-                
-                // Keep rocket within canvas bounds
+                rocketVelocityX *= 0.8;
+
                 if (rocket.x < 0) {
                     rocket.x = 0;
                     rocketVelocityX = 0;
@@ -407,12 +396,11 @@
                     rocket.x = canvas.width - rocket.width;
                     rocketVelocityX = 0;
                 }
-                
-                // Update target angle based on velocity
+
                 targetRocketAngle = Math.max(-0.3, Math.min(0.3, rocketVelocityX * 0.03));
             }
             
-            // Update flame particles
+            // Flame particles
             for (let i = flameParticles.length - 1; i >= 0; i--) {
                 flameParticles[i].update();
                 if (flameParticles[i].life <= 0 || flameParticles[i].size <= 0.5) {
@@ -420,64 +408,45 @@
                 }
             }
             
-            // Generate flame particles (every 2 frames)
             if (frameCount % 2 === 0) {
                 const flameX = rocket.x + rocket.width / 2 + (Math.random() - 0.5) * 10;
                 const flameY = rocket.y + rocket.height + 5;
                 flameParticles.push(new FlameParticle(flameX, flameY));
             }
             
-            // Update stars
+            // Stars
             for (let i = stars.length - 1; i >= 0; i--) {
                 stars[i].update();
-                
-                // Check collision with rocket
                 if (stars[i].collidesWith(rocket)) {
                     stars[i].collected = true;
-                    score += 1; // 1 point per star
+                    score += 1;
                     document.getElementById('score').textContent = `Звёзды: ${score}`;
                 }
-                
-                // Remove stars that are off screen or collected
                 if (stars[i].y > canvas.height || stars[i].collected) {
                     stars.splice(i, 1);
                 }
             }
             
-            // Update meteors
+            // Meteors
             for (let i = meteors.length - 1; i >= 0; i--) {
                 meteors[i].update();
-                
-                // Check collision with rocket
                 if (meteors[i].collidesWith(rocket)) {
                     gameOver();
                     return;
                 }
-                
-                // Remove meteors that are off screen
                 if (meteors[i].y > canvas.height) {
                     meteors.splice(i, 1);
                 }
             }
             
-            // Spawn new stars (3% chance per frame)
-            if (Math.random() < 0.03) {
-                stars.push(new Star());
-            }
-            
-            // Spawn new meteors (1.5% chance per frame)
-            if (Math.random() < 0.015) {
-                meteors.push(new Meteor());
-            }
+            if (Math.random() < 0.03) stars.push(new Star());
+            if (Math.random() < 0.015) meteors.push(new Meteor());
         }
 
-        // Draw everything
         function draw() {
-            // Draw background
             if (images.background) {
                 ctx.drawImage(images.background, 0, 0, canvas.width, canvas.height);
             } else {
-                // Fallback background
                 const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
                 gradient.addColorStop(0, '#000428');
                 gradient.addColorStop(1, '#004e92');
@@ -485,7 +454,6 @@
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
             }
             
-            // Draw stars background
             ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
             for (let i = 0; i < 50; i++) {
                 const x = (i * 37) % canvas.width;
@@ -496,21 +464,16 @@
                 ctx.fill();
             }
             
-            // Draw flame particles
-            flameParticles.forEach(particle => particle.draw());
+            flameParticles.forEach(p => p.draw());
+            stars.forEach(s => s.draw());
+            meteors.forEach(m => m.draw());
             
-            // Draw game objects
-            stars.forEach(star => star.draw());
-            meteors.forEach(meteor => meteor.draw());
-            
-            // Draw rocket with rotation
             ctx.save();
             ctx.translate(rocket.x + rocket.width/2, rocket.y + rocket.height/2);
             ctx.rotate(rocketAngle);
             if (images.rocket) {
                 ctx.drawImage(images.rocket, -rocket.width/2, -rocket.height/2, rocket.width, rocket.height);
             } else {
-                // Fallback rocket drawing with rotation
                 ctx.fillStyle = '#4ecdc4';
                 ctx.beginPath();
                 ctx.moveTo(0, -rocket.height/2);
@@ -522,23 +485,19 @@
             ctx.restore();
         }
 
-        // Game loop
         function gameLoop() {
             if (!gameRunning) return;
-            
             updateGame();
             draw();
             requestAnimationFrame(gameLoop);
         }
 
-        // Game over
         function gameOver() {
             gameRunning = false;
             document.getElementById('finalScore').textContent = `Звёзды: ${score}`;
             document.getElementById('gameOver').style.display = 'flex';
         }
 
-        // Start game
         function startGame() {
             gameRunning = true;
             score = 0;
@@ -556,119 +515,103 @@
             gameLoop();
         }
 
-        // Mouse and touch control variables
+        // === УПРАВЛЕНИЕ ===
         let isUsingTouchScreen = false;
-        let touchStartX = 0;
 
-        // Mouse move for desktop
+        // Desktop mouse
         canvas.addEventListener('mousemove', (e) => {
             if (gameRunning && !isMobile) {
                 isUsingTouchScreen = false;
                 const newX = e.clientX - rocket.width / 2;
                 rocket.x = Math.max(0, Math.min(canvas.width - rocket.width, newX));
-                
-                // Calculate angle based on mouse position relative to center
                 const centerX = canvas.width / 2;
                 const mouseOffset = e.clientX - centerX;
                 targetRocketAngle = Math.max(-0.3, Math.min(0.3, mouseOffset * 0.001));
             }
         });
 
-        // Touch start for mobile
+        // Touch start — canvas
         canvas.addEventListener('touchstart', (e) => {
             if (gameRunning && isMobile) {
                 e.preventDefault();
                 isUsingTouchScreen = true;
                 const touch = e.touches[0];
-                touchStartX = touch.clientX;
                 const newX = touch.clientX - rocket.width / 2;
                 rocket.x = Math.max(0, Math.min(canvas.width - rocket.width, newX));
-                
-                // Calculate angle based on touch position relative to center
                 const centerX = canvas.width / 2;
                 const touchOffset = touch.clientX - centerX;
                 targetRocketAngle = Math.max(-0.3, Math.min(0.3, touchOffset * 0.001));
             }
         }, { passive: false });
 
-        // Touch move for mobile
+        // Touch move — canvas
         canvas.addEventListener('touchmove', (e) => {
             if (gameRunning && isMobile && isUsingTouchScreen) {
                 e.preventDefault();
                 const touch = e.touches[0];
                 const newX = touch.clientX - rocket.width / 2;
                 rocket.x = Math.max(0, Math.min(canvas.width - rocket.width, newX));
-                
-                // Calculate angle based on touch position relative to center
                 const centerX = canvas.width / 2;
                 const touchOffset = touch.clientX - centerX;
                 targetRocketAngle = Math.max(-0.3, Math.min(0.3, touchOffset * 0.001));
             }
         }, { passive: false });
 
-        // Touch end for mobile
+        // Touch end — canvas (ВАЖНО: сброс флага!)
         canvas.addEventListener('touchend', () => {
             if (isMobile) {
+                isUsingTouchScreen = false; // ← КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ
                 targetRocketAngle = 0;
             }
         });
 
-        // Button controls for mobile
+        // Кнопки — работают ТОЛЬКО когда isUsingTouchScreen === false
+        function setButtonVelocity(dir) {
+            if (!isUsingTouchScreen) {
+                rocketVelocityX = dir * rocket.maxSpeed;
+                targetRocketAngle = dir * 0.2;
+            }
+        }
+
         document.getElementById('leftBtn').addEventListener('touchstart', (e) => {
             if (gameRunning && isMobile) {
                 e.preventDefault();
-                rocketVelocityX = -rocket.maxSpeed;
-                targetRocketAngle = -0.2;
+                setButtonVelocity(-1);
             }
         }, { passive: false });
-
-        document.getElementById('leftBtn').addEventListener('touchend', () => {
-            if (isMobile) {
-                targetRocketAngle = 0;
-            }
-        });
 
         document.getElementById('rightBtn').addEventListener('touchstart', (e) => {
             if (gameRunning && isMobile) {
                 e.preventDefault();
-                rocketVelocityX = rocket.maxSpeed;
-                targetRocketAngle = 0.2;
+                setButtonVelocity(1);
             }
         }, { passive: false });
 
+        document.getElementById('leftBtn').addEventListener('touchend', () => {
+            if (isMobile && !isUsingTouchScreen) targetRocketAngle = 0;
+        });
+
         document.getElementById('rightBtn').addEventListener('touchend', () => {
-            if (isMobile) {
-                targetRocketAngle = 0;
-            }
+            if (isMobile && !isUsingTouchScreen) targetRocketAngle = 0;
         });
 
-        // Also support mouse clicks on buttons for testing
+        // Mouse для кнопок (тестирование на ПК)
         document.getElementById('leftBtn').addEventListener('mousedown', () => {
-            if (gameRunning) {
-                rocketVelocityX = -rocket.maxSpeed;
-                targetRocketAngle = -0.2;
-            }
+            if (gameRunning && !isUsingTouchScreen) setButtonVelocity(-1);
         });
-
         document.getElementById('leftBtn').addEventListener('mouseup', () => {
-            targetRocketAngle = 0;
+            if (!isUsingTouchScreen) targetRocketAngle = 0;
         });
-
         document.getElementById('rightBtn').addEventListener('mousedown', () => {
-            if (gameRunning) {
-                rocketVelocityX = rocket.maxSpeed;
-                targetRocketAngle = 0.2;
-            }
+            if (gameRunning && !isUsingTouchScreen) setButtonVelocity(1);
         });
-
         document.getElementById('rightBtn').addEventListener('mouseup', () => {
-            targetRocketAngle = 0;
+            if (!isUsingTouchScreen) targetRocketAngle = 0;
         });
 
         document.getElementById('startBtn').addEventListener('click', startGame);
         document.getElementById('restartBtn').addEventListener('click', startGame);
 
-        // Handle window resize
         window.addEventListener('resize', () => {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
@@ -676,6 +619,3 @@
     </script>
 </body>
 </html>
-
-
-
