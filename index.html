@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, user-scalable=no">
+    <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
     <title>Космическая Ракета</title>
     <style>
         * {
@@ -15,6 +15,11 @@
             overflow: hidden;
             font-family: 'Arial', sans-serif;
             touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
         }
         #gameCanvas {
             display: block;
@@ -111,12 +116,39 @@
             color: white;
             font-size: 24px;
         }
+        /* Touch controls for mobile */
+        #touchControls {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            width: 100%;
+            display: none;
+            justify-content: center;
+            z-index: 15;
+        }
+        .touchButton {
+            width: 60px;
+            height: 60px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            margin: 0 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            color: white;
+            user-select: none;
+        }
     </style>
 </head>
 <body>
     <canvas id="gameCanvas"></canvas>
     <div id="ui">
         <div id="score">Звёзды: 0</div>
+    </div>
+    <div id="touchControls">
+        <div class="touchButton" id="leftBtn">←</div>
+        <div class="touchButton" id="rightBtn">→</div>
     </div>
     <div id="gameOver">
         <h2>ИГРА ОКОНЧЕНА!</h2>
@@ -125,7 +157,7 @@
     </div>
     <div id="startScreen">
         <h1>Космическая Ракета</h1>
-        <p>Собирай звёзды и избегай метеоритов!<br>Используй мышь или касание для управления</p>
+        <p>Собирай звёзды и избегай метеоритов!<br>Используй мышь, касание или кнопки для управления</p>
         <button id="startBtn">Начать игру</button>
     </div>
     <div id="loading" class="loading">Загрузка изображений...</div>
@@ -136,6 +168,14 @@
         const ctx = canvas.getContext('2d');
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
+
+        // Check if device is mobile
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
+        // Show touch controls on mobile
+        if (isMobile) {
+            document.getElementById('touchControls').style.display = 'flex';
+        }
 
         // Image loading
         const images = {};
@@ -221,6 +261,9 @@
         let score = 0;
         let flameParticles = [];
         let frameCount = 0;
+        let rocketAngle = 0; // Angle for rocket tilt
+        let targetRocketAngle = 0; // Target angle for smooth rotation
+        let rocketVelocityX = 0; // For mobile button controls
 
         // Flame particle class
         class FlameParticle {
@@ -259,7 +302,8 @@
             y: canvas.height - 100,
             width: 50,
             height: 80,
-            speed: 8
+            speed: 8,
+            maxSpeed: 10
         };
 
         const stars = [];
@@ -343,6 +387,29 @@
         // Update game objects
         function updateGame() {
             frameCount++;
+            
+            // Update rocket angle smoothly
+            rocketAngle += (targetRocketAngle - rocketAngle) * 0.2;
+            
+            // Update rocket position based on control method
+            if (isMobile && !isUsingTouchScreen) {
+                // Mobile button controls
+                rocket.x += rocketVelocityX;
+                rocketVelocityX *= 0.8; // Friction
+                
+                // Keep rocket within canvas bounds
+                if (rocket.x < 0) {
+                    rocket.x = 0;
+                    rocketVelocityX = 0;
+                }
+                if (rocket.x > canvas.width - rocket.width) {
+                    rocket.x = canvas.width - rocket.width;
+                    rocketVelocityX = 0;
+                }
+                
+                // Update target angle based on velocity
+                targetRocketAngle = Math.max(-0.3, Math.min(0.3, rocketVelocityX * 0.03));
+            }
             
             // Update flame particles
             for (let i = flameParticles.length - 1; i >= 0; i--) {
@@ -435,10 +502,23 @@
             stars.forEach(star => star.draw());
             meteors.forEach(meteor => meteor.draw());
             
-            // Draw rocket
+            // Draw rocket with rotation
+            ctx.save();
+            ctx.translate(rocket.x + rocket.width/2, rocket.y + rocket.height/2);
+            ctx.rotate(rocketAngle);
             if (images.rocket) {
-                ctx.drawImage(images.rocket, rocket.x, rocket.y, rocket.width, rocket.height);
+                ctx.drawImage(images.rocket, -rocket.width/2, -rocket.height/2, rocket.width, rocket.height);
+            } else {
+                // Fallback rocket drawing with rotation
+                ctx.fillStyle = '#4ecdc4';
+                ctx.beginPath();
+                ctx.moveTo(0, -rocket.height/2);
+                ctx.lineTo(rocket.width/2, rocket.height/2);
+                ctx.lineTo(-rocket.width/2, rocket.height/2);
+                ctx.closePath();
+                ctx.fill();
             }
+            ctx.restore();
         }
 
         // Game loop
@@ -465,6 +545,9 @@
             meteors.length = 0;
             flameParticles.length = 0;
             frameCount = 0;
+            rocketAngle = 0;
+            targetRocketAngle = 0;
+            rocketVelocityX = 0;
             rocket.x = canvas.width / 2 - 25;
             document.getElementById('score').textContent = `Звёзды: ${score}`;
             document.getElementById('startScreen').style.display = 'none';
@@ -472,26 +555,114 @@
             gameLoop();
         }
 
-        // Event listeners
+        // Mouse and touch control variables
+        let isUsingTouchScreen = false;
+        let touchStartX = 0;
+
+        // Mouse move for desktop
         canvas.addEventListener('mousemove', (e) => {
-            if (gameRunning) {
-                rocket.x = e.clientX - rocket.width / 2;
-                // Keep rocket within canvas bounds
-                if (rocket.x < 0) rocket.x = 0;
-                if (rocket.x > canvas.width - rocket.width) rocket.x = canvas.width - rocket.width;
+            if (gameRunning && !isMobile) {
+                isUsingTouchScreen = false;
+                const newX = e.clientX - rocket.width / 2;
+                rocket.x = Math.max(0, Math.min(canvas.width - rocket.width, newX));
+                
+                // Calculate angle based on mouse position relative to center
+                const centerX = canvas.width / 2;
+                const mouseOffset = e.clientX - centerX;
+                targetRocketAngle = Math.max(-0.3, Math.min(0.3, mouseOffset * 0.001));
             }
         });
 
-        canvas.addEventListener('touchmove', (e) => {
-            if (gameRunning) {
+        // Touch start for mobile
+        canvas.addEventListener('touchstart', (e) => {
+            if (gameRunning && isMobile) {
                 e.preventDefault();
+                isUsingTouchScreen = true;
                 const touch = e.touches[0];
-                rocket.x = touch.clientX - rocket.width / 2;
-                // Keep rocket within canvas bounds
-                if (rocket.x < 0) rocket.x = 0;
-                if (rocket.x > canvas.width - rocket.width) rocket.x = canvas.width - rocket.width;
+                touchStartX = touch.clientX;
+                const newX = touch.clientX - rocket.width / 2;
+                rocket.x = Math.max(0, Math.min(canvas.width - rocket.width, newX));
+                
+                // Calculate angle based on touch position relative to center
+                const centerX = canvas.width / 2;
+                const touchOffset = touch.clientX - centerX;
+                targetRocketAngle = Math.max(-0.3, Math.min(0.3, touchOffset * 0.001));
             }
         }, { passive: false });
+
+        // Touch move for mobile
+        canvas.addEventListener('touchmove', (e) => {
+            if (gameRunning && isMobile && isUsingTouchScreen) {
+                e.preventDefault();
+                const touch = e.touches[0];
+                const newX = touch.clientX - rocket.width / 2;
+                rocket.x = Math.max(0, Math.min(canvas.width - rocket.width, newX));
+                
+                // Calculate angle based on touch position relative to center
+                const centerX = canvas.width / 2;
+                const touchOffset = touch.clientX - centerX;
+                targetRocketAngle = Math.max(-0.3, Math.min(0.3, touchOffset * 0.001));
+            }
+        }, { passive: false });
+
+        // Touch end for mobile
+        canvas.addEventListener('touchend', () => {
+            if (isMobile) {
+                targetRocketAngle = 0;
+            }
+        });
+
+        // Button controls for mobile
+        document.getElementById('leftBtn').addEventListener('touchstart', (e) => {
+            if (gameRunning && isMobile) {
+                e.preventDefault();
+                rocketVelocityX = -rocket.maxSpeed;
+                targetRocketAngle = -0.2;
+            }
+        }, { passive: false });
+
+        document.getElementById('leftBtn').addEventListener('touchend', () => {
+            if (isMobile) {
+                targetRocketAngle = 0;
+            }
+        });
+
+        document.getElementById('rightBtn').addEventListener('touchstart', (e) => {
+            if (gameRunning && isMobile) {
+                e.preventDefault();
+                rocketVelocityX = rocket.maxSpeed;
+                targetRocketAngle = 0.2;
+            }
+        }, { passive: false });
+
+        document.getElementById('rightBtn').addEventListener('touchend', () => {
+            if (isMobile) {
+                targetRocketAngle = 0;
+            }
+        });
+
+        // Also support mouse clicks on buttons for testing
+        document.getElementById('leftBtn').addEventListener('mousedown', () => {
+            if (gameRunning) {
+                rocketVelocityX = -rocket.maxSpeed;
+                targetRocketAngle = -0.2;
+            }
+        });
+
+        document.getElementById('leftBtn').addEventListener('mouseup', () => {
+            targetRocketAngle = 0;
+        });
+
+        document.getElementById('rightBtn').addEventListener('mousedown', () => {
+            if (gameRunning) {
+                rocketVelocityX = rocket.maxSpeed;
+                targetRocketAngle = 0.2;
+            }
+        });
+
+        document.getElementById('rightBtn').addEventListener('mouseup', () => {
+            targetRocketAngle = 0;
+        });
 
         document.getElementById('startBtn').addEventListener('click', startGame);
         document.getElementById('restartBtn').addEventListener('click', startGame);
@@ -504,4 +675,5 @@
     </script>
 </body>
 </html>
+
 
